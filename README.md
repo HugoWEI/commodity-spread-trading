@@ -22,15 +22,14 @@ Key techniques:
 
 ## 📊 Key Results
 
-## 📊 Key Results
-
 | Model | Sharpe | Max DD | Notes |
 |------|--------|--------|------|
 | HH–TTF Rolling Beta | 0.37 | -28.12 | Unstable hedge ratio, weak walk-forward robustness |
 | HH–TTF + ML Filter | 0.39 | N/A | Walk-forward ML filter not robust |
 | Brent–WTI Baseline | 0.33 | -59.05 | Stable but weak |
 | Brent–WTI Production OLS | 0.70 | -1.96 | Controlled risk |
-| **Brent–WTI Kalman** | **1.43** | **-1.95** | Adaptive + robust |
+| *Brent–WTI Kalman* | *1.43* | *-1.95* | Adaptive + robust |
+| **Brent–WTI Kalman (USD, walk-forward)** | **1.24** | **-12.7% (DD/PnL)** | Adaptive hedge ratio, contract-level sizing, after costs |
 
 ---
 
@@ -134,6 +133,43 @@ Prices → Kalman Filter → Residual → Z-score → Regime Filter → Position
 ## 📈 Strategy Performance
 
 ![PnL](reports/pnl.png)
+
+---
+
+## 💰 From Model Units to Real Trading PnL
+
+Up to this point, strategy performance is expressed in **spread units**, where PnL reflects changes in the residual (Brent − β·WTI) scaled by a unitless position. While this is sufficient to evaluate signal quality (e.g., Sharpe ratio), it does not correspond to real-world profitability.
+
+To make the strategy **deployable**, the model is converted into a **contract-level implementation**:
+
+- Positions are expressed in **futures contracts** (Brent and WTI), using standard contract sizes (~1000 barrels per contract)
+- The hedge ratio (β) determines the relative number of contracts in each leg
+- Residual changes (in $/barrel) are mapped to **USD PnL** via contract multipliers
+- Position sizing is scaled to a **target daily risk budget** (e.g., $1,000), ensuring consistent exposure across time
+- Transaction costs are incorporated as **per-contract costs**, approximating bid-ask spreads and execution slippage
+
+This conversion allows the strategy to be evaluated in **real monetary terms**, including:
+- Net PnL in USD
+- Drawdown in USD
+- Cost impact on returns
+- Position sizes and turnover
+
+### USD Results (Contract-Level Implementation)
+
+#### Results
+- Sharpe: **1.24**
+- Net PnL: **$62.4k**
+- Max drawdown: **-$7.93k**
+- Drawdown / PnL: **12.7%**
+- Gross PnL: **$69.6k**
+- Total costs: **$7.24k**
+
+---
+
+## 📈 Strategy Performance
+
+![Performance](reports/performance.png)
+
 
 ---
 
