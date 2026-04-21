@@ -22,13 +22,15 @@ Key techniques:
 
 ## 📊 Key Results
 
+## 📊 Key Results
+
 | Model | Sharpe | Max DD | Notes |
 |------|--------|--------|------|
-| HH–TTF Rolling Beta | ~0.5 → ~0.3 | High | Unstable hedge ratio |
-| HH–TTF + ML Filter | ~1.5 (unstable) | High | Not robust |
-| Brent–WTI Baseline | ~0.33 | Very high | Stable but weak |
-| Brent–WTI Production OLS | ~0.7 | Low | Controlled risk |
-| **Brent–WTI Kalman** | **~1.43** | **~-2** | Adaptive + robust |
+| HH–TTF Rolling Beta | 0.37 | -28.12 | Unstable hedge ratio, weak walk-forward robustness |
+| HH–TTF + ML Filter | 0.39 | N/A | Walk-forward ML filter not robust |
+| Brent–WTI Baseline | 0.33 | -59.05 | Stable but weak |
+| Brent–WTI Production OLS | 0.70 | -1.96 | Controlled risk |
+| **Brent–WTI Kalman** | **1.43** | **-1.95** | Adaptive + robust |
 
 ---
 
@@ -112,15 +114,43 @@ Key techniques:
   - train → calibrate → freeze → test
 - Fully lagged execution
 
+## ⚙️ Pipeline
+
+Prices → Kalman Filter → Residual → Z-score → Regime Filter → Position → PnL
+
 #### Results
-- Sharpe ~1.43  
-- Max drawdown ~-2  
-- Low trade frequency (~8 trades per split)  
-- ~13% of periods with no trades  
+- Sharpe: **1.43**
+- Max drawdown: **-1.95**
+- Average trades per split: ~8
+- ~13% of periods with no trades
+- Median split Sharpe (active periods): ~2.8
 
 ---
 
-> The strategy exhibits strong performance in periods where sufficient trading opportunities exist (median split Sharpe ~2.8), but activity is sparse, with ~13% of periods producing no trades. This highlights the importance of opportunity filtering and capacity constraints in spread trading.
+> The strategy exhibits strong performance in periods where sufficient trading opportunities exist (median split Sharpe ~2.8), but activity is sparse, with ~13% of periods producing no trades.
+
+---
+
+## 📈 Strategy Performance
+
+![PnL](reports/pnl.png)
+
+---
+
+## ⏱️ Backtesting Framework
+
+All strategies are evaluated using a **walk-forward methodology**:
+
+- Training window: **~2 years (504 trading days)**
+- Test (live) window: **~3 months (63 trading days)**
+- Rolling evaluation across ~9 years of data
+
+Each model is:
+1. Calibrated on the training window  
+2. Frozen  
+3. Applied to the next test period  
+
+This avoids look-ahead bias and mimics real deployment conditions.
 
 ---
 
