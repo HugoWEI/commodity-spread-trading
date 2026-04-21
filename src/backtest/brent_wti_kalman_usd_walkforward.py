@@ -30,8 +30,10 @@ def make_splits(df, train_size=252 * 2, test_size=63):
     start = 0
     while start + train_size + test_size <= len(df):
         splits.append(
-            (slice(start, start + train_size),
-             slice(start + train_size, start + train_size + test_size))
+            (
+                slice(start, start + train_size),
+                slice(start + train_size, start + train_size + test_size),
+            )
         )
         start += test_size
     return splits
@@ -121,7 +123,7 @@ def evaluate_train(train, delta, R, cfg):
         beta_th,
     )
 
-    return sharpe_ratio(bt["net_pnl_usd"]), {
+    return sharpe_ratio(bt["returns"]), {
         "delta": delta,
         "R": R,
         "vol_th": vol_th,
@@ -163,36 +165,34 @@ def run_strategy_usd(df, test_index, cfg, vol_th, beta_th):
 
     out["signal_side"] = positions
 
-    # Contract sizing:
-    # target daily USD risk / (spread vol in $/bbl * contract size)
-    # round down to whole contracts
-    out["contracts_target"] = np.where(
+    # size in spread units from target daily risk budget
+    out["spread_unit_target"] = np.where(
         out["vol_signal"] > 0,
         cfg["target_daily_risk_usd"] /
         (out["vol_signal"] * cfg["contract_size_bbl"]),
         0.0,
     )
+    out["spread_units"] = np.floor(
+        out["spread_unit_target"]).clip(0, cfg["max_contracts"])
 
-    out["contracts"] = np.floor(
-        out["contracts_target"]).clip(0, cfg["max_contracts"])
-    out["contracts_signed"] = out["signal_side"] * out["contracts"]
+    out["contracts_signed"] = out["signal_side"] * out["spread_units"]
 
     # lagged execution
     out["contracts_lag"] = out["contracts_signed"].shift(1).fillna(0)
 
-    # USD PnL:
-    # spread change ($/bbl) * barrels/contract * number of spread units
+    # USD PnL
     out["gross_pnl_usd"] = (
         out["contracts_lag"] * out["spread_change"] * cfg["contract_size_bbl"]
     )
 
     out["turnover_contracts"] = (
         out["contracts_signed"] - out["contracts_lag"]).abs()
-
-    # flat per-contract round-turn approximation on each rebalance leg
     out["cost_usd"] = out["turnover_contracts"] * cfg["cost_per_contract_usd"]
 
     out["net_pnl_usd"] = out["gross_pnl_usd"] - out["cost_usd"]
+
+    # percentage returns
+    out["returns"] = out["net_pnl_usd"] / cfg["capital_usd"]
 
     return out.loc[test_index].copy()
 
@@ -222,10 +222,13 @@ def main():
         beta_q=0.80,
 
         # contract plumbing
-        contract_size_bbl=1000,        # ICE Brent / NYMEX WTI typical multiplier
-        cost_per_contract_usd=20.0,    # simple placeholder cost
-        target_daily_risk_usd=1000.0,  # target daily spread risk budget
+        contract_size_bbl=1000,
+        cost_per_contract_usd=20.0,
+        target_daily_risk_usd=1000.0,
         max_contracts=10,
+
+        # return denominator
+        capital_usd=100_000.0,
     )
 
     delta_grid = [1e-6, 1e-5, 1e-4]
@@ -272,7 +275,7 @@ def main():
         trade_days = int(test_res["signal_side"].ne(0).sum())
         pnl_days = int((test_res["net_pnl_usd"] != 0).sum())
 
-        test_sharpe = sharpe_ratio(test_res["net_pnl_usd"])
+        test_sharpe = sharpe_ratio(test_res["returns"])
         display_sharpe = "NA" if pd.isna(test_sharpe) else f"{test_sharpe:.3f}"
 
         print(
@@ -291,7 +294,7 @@ def main():
             "test_sharpe": test_sharpe,
             "trade_days": trade_days,
             "pnl_days": pnl_days,
-            "avg_contracts": float(test_res["contracts"].mean()),
+            "avg_contracts": float(test_res["spread_units"].mean()),
             "avg_abs_contracts": float(test_res["contracts_signed"].abs().mean()),
             "gross_pnl_usd": float(test_res["gross_pnl_usd"].sum()),
             "cost_usd": float(test_res["cost_usd"].sum()),
@@ -300,18 +303,36 @@ def main():
 
     final = pd.concat(results).sort_index()
     final["cum_usd"] = final["net_pnl_usd"].cumsum()
+    final["equity_curve"] = cfg["capital_usd"] + final["cum_usd"]
 
     summary_df = pd.DataFrame(summary)
     valid_sharpes = summary_df.loc[summary_df["pnl_days"]
                                    >= 10, "test_sharpe"].dropna()
     empty_split_rate = (summary_df["pnl_days"] == 0).mean()
 
+    # FINAL STATS
+    returns = final["returns"]
+
+    daily_mean = returns.mean()
+    daily_std = returns.std()
+
+    ann_return = daily_mean * 252
+    ann_vol = daily_std * np.sqrt(252)
+    sharpe = sharpe_ratio(returns)
+
     print("\n=== FINAL USD RESULTS ===")
-    print("Sharpe:", sharpe_ratio(final["net_pnl_usd"]))
+    print("Sharpe:", sharpe)
     print("Net PnL USD:", final["cum_usd"].iloc[-1])
     print("MaxDD USD:", max_drawdown(final["cum_usd"]))
-    print("Gross PnL USD:", final["gross_pnl_usd"].sum())
-    print("Total Cost USD:", final["cost_usd"].sum())
+
+    print("\n--- Return Stats ---")
+    print("Mean daily return:", daily_mean)
+    print("Std daily return (vol):", daily_std)
+
+    print("Annualized return:", ann_return)
+    print("Annualized volatility:", ann_vol)
+
+    print("\n--- Activity ---")
     print("Mean trade days per split:", summary_df["trade_days"].mean())
     print("Median trade days per split:", summary_df["trade_days"].median())
     print("Mean pnl_days per split:", summary_df["pnl_days"].mean())

@@ -29,7 +29,7 @@ Key techniques:
 | Brent–WTI Baseline | 0.33 | -59.05 | Stable but weak |
 | Brent–WTI Production OLS | 0.70 | -1.96 | Controlled risk |
 | *Brent–WTI Kalman* | *1.43* | *-1.95* | Adaptive + robust |
-| **Brent–WTI Kalman (USD, walk-forward)** | **1.24** | **-12.7% (DD/PnL)** | Adaptive hedge ratio, contract-level sizing, after costs |
+| **Brent–WTI Kalman (USD, walk-forward)** | **1.24** | **-7.9% of capital** | Adaptive hedge ratio, contract-level sizing, after costs |
 
 ---
 
@@ -126,10 +126,6 @@ Prices → Kalman Filter → Residual → Z-score → Regime Filter → Position
 
 ---
 
-> The strategy exhibits strong performance in periods where sufficient trading opportunities exist (median split Sharpe ~2.8), but activity is sparse, with ~13% of periods producing no trades.
-
----
-
 ## 📈 Strategy Performance
 
 ![PnL](reports/pnl.png)
@@ -138,31 +134,36 @@ Prices → Kalman Filter → Residual → Z-score → Regime Filter → Position
 
 ## 💰 From Model Units to Real Trading PnL
 
-Up to this point, strategy performance is expressed in **spread units**, where PnL reflects changes in the residual (Brent − β·WTI) scaled by a unitless position. While this is sufficient to evaluate signal quality (e.g., Sharpe ratio), it does not correspond to real-world profitability.
+Up to this point, strategy performance is expressed in spread units, where PnL reflects changes in the residual (Brent − β·WTI) scaled by a unitless position. While this is sufficient to evaluate signal quality (e.g., Sharpe ratio), it does not correspond to real-world profitability.
 
-To make the strategy **deployable**, the model is converted into a **contract-level implementation**:
+To make the strategy deployable, the model is converted into a contract-level implementation:
 
-- Positions are expressed in **futures contracts** (Brent and WTI), using standard contract sizes (~1000 barrels per contract)
-- The hedge ratio (β) determines the relative number of contracts in each leg
-- Residual changes (in $/barrel) are mapped to **USD PnL** via contract multipliers
-- Position sizing is scaled to a **target daily risk budget** (e.g., $1,000), ensuring consistent exposure across time
-- Transaction costs are incorporated as **per-contract costs**, approximating bid-ask spreads and execution slippage
+- Positions are expressed in futures contracts, using standard contract sizes (~1000 barrels per contract)
+- The hedge ratio (β) determines the relative exposure of the two legs
+- Residual changes (in $/barrel) are mapped to USD PnL via contract multipliers
+- Position sizing is scaled to a target daily risk budget
+- Transaction costs are incorporated as per-contract costs
 
-This conversion allows the strategy to be evaluated in **real monetary terms**, including:
-- Net PnL in USD
-- Drawdown in USD
-- Cost impact on returns
-- Position sizes and turnover
+This conversion allows the strategy to be evaluated in real monetary terms, including net PnL, drawdown, cost drag, and capacity.
 
 ### USD Results (Contract-Level Implementation)
 
 #### Results
 - Sharpe: **1.24**
 - Net PnL: **$62.4k**
-- Max drawdown: **-$7.93k**
-- Drawdown / PnL: **12.7%**
-- Gross PnL: **$69.6k**
-- Total costs: **$7.24k**
+- Max drawdown: **-$7.93k (~7.9% of capital)**
+- Mean daily return: **0.026%**
+- Daily volatility: **0.335%**
+- Annualized return: **6.57%**
+- Annualized volatility: **5.31%**
+- Mean trade days per split: **7.5**
+- Median trade days per split: **5.5**
+- Mean pnl_days per split: **9.26**
+- Median pnl_days per split: **7.5**
+- Empty split rate: **15.8%**
+- Median split Sharpe (pnl_days >= 10): **2.38**
+
+> The strategy exhibits strong performance in periods where sufficient trading opportunities exist (median split Sharpe ~2.4 for periods with at least 10 PnL days), but activity is sparse, with ~16% of periods producing no trades. This highlights the importance of opportunity filtering and capacity constraints in spread trading.
 
 ---
 
