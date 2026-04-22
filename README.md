@@ -31,6 +31,7 @@ Key techniques:
 | *Brent–WTI Kalman* | *1.43* | *-1.95* | Adaptive + robust |
 | **Brent–WTI Kalman (USD, walk-forward)** | **1.24** | **-7.9% of capital** | Adaptive hedge ratio, contract-level sizing, after costs |
 
+We tested an OU-based half-life filter to improve trade selection. However, performance deteriorated, suggesting that the Brent–WTI spread does not exhibit stable mean-reversion dynamics consistent with OU assumptions. Instead, the spread appears to be regime-driven, where structural shifts dominate over continuous mean reversion.
 ---
 
 ## 🔍 Models & Methodologies
