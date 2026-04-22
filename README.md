@@ -203,5 +203,5 @@ python -m src.data.download_data
 python -m src.data.prepare_data
 python -m src.data.prepare_brent_wti
 
-# Run production Kalman model
-python -m src.backtest.brent_wti_kalman_production_walkforward
+# Run best Kalman model
+python -m src.backtest.brent_wti_kalman_usd_walkforward
